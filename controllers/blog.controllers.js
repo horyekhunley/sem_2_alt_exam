@@ -1,4 +1,4 @@
-const Blog = require('../models/blog.model')
+const {Blog} = require('../models/blog.model')
 
 // get all blogs
 exports.getAllBlogs = async (req, res) => {
@@ -74,7 +74,7 @@ exports.deleteBlog = async (req, res) => {
 			message: 'Blog with id ${req.params.id} does not exist',
 		})
 	}else{
-		return res.status(200).json({
+		return res.status(204).json({
 			message: 'Blog deleted'
 		})
 	}
