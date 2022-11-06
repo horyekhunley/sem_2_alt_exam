@@ -1,4 +1,5 @@
 const {Blog} = require('../models/blog.model')
+const {User} = require('../models/user.model')
 
 // get all blogs
 exports.getAllBlogs = async (req, res) => {
@@ -16,7 +17,7 @@ exports.getAllBlogs = async (req, res) => {
 }
 // get blogs and filter by title
 exports.getBlogByTitle = async (req, res) => {
-	Blog.find({ title: req.params.blogTitle }, (err, blog) => {
+	Blog.find({ title: req.params.title }, (err, blog) => {
 		if (err) {
 			res.status(400).json({
 				message: 'An error occurred',
@@ -75,8 +76,22 @@ exports.createNewBlog = async (req, res) => {
 }
 //update blog
 exports.updateBlog = async (req, res) => {
-	const blog = await Blog
-			.findByIdAndUpdate(req.params.id, { ...req.body }, { new: true })
+	let blog = await Blog.findById(req.params.user._id)
+	if (!blog) {
+		return res.status(404).json({
+			message: 'Blog with id ${req.params.id} does not exist',
+		})
+	}
+	blog = await Blog.findOneAndUpdate({ "user._id": req.user._id }, {
+		$set: {
+			title: req.body.title,
+			description: req.body.description,
+			state: req.body.state,
+			tags: req.body.tags,
+			body: req.body.body,
+			reading_time: req.body.reading_time
+		}
+	}, { new: true })
 	return  res.status(200).json({
 		message: 'Blog updated',
 		blog
