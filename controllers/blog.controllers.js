@@ -48,10 +48,25 @@ exports.getBlogById = async (req, res) => {
 }
 // create a new blog
 exports.createNewBlog = async (req, res) => {
-	const blog = new Blog({
-		...req.body
-	})
-	await blog.save()
+	const blogContents = req.body
+	const user = await User.findOne({ email: blogContents.email })
+
+	const reading_time = () => {
+		const blogWords = blogContents.body.split(' ')
+		const blogLength = blogWords.length
+		const estimatedTimeInMinutes = blogLength/250
+		return `${estimatedTimeInMinutes} minutes`
+	}
+	const tags = blogContents.tags
+	const tagsArray = (tags) => {
+		return blogContents.tags.split(' ')
+	}
+	blogContents.tags = tagsArray(tags)
+	blogContents.reading_time = reading_time()
+	blogContents.author = user._id
+	blogContents.state = 'draft'
+
+	const blog = await Blog.create(blogContents)
 
 	res.status(201).json({
 		message: 'Blog created',

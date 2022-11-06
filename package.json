@@ -6,8 +6,8 @@
   "author": "Mahbub Bello",
   "license": "MIT",
   "scripts": {
-    "dev": "cross-env nodemon app.js",
-    "start": "cross-env NODE_ENV=production node app.js",
+    "start": "cross-env nodemon app.js",
+    "dev": "cross-env NODE_ENV=production node app.js",
     "test": "cross-env NODE_ENV=test jest --verbose --runInBand --forceExit"
   },
   "dependencies": {
