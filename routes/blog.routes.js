@@ -1,18 +1,20 @@
-const express = require('express')
-const passport = require('passport')
-const {getAllBlogs,
-	createNewBlog,
-	getBlogById,
-	updateBlog,
-	deleteBlog} = require("../controllers/blog.controllers");
-const router = express.Router()
-const authenticate = require('../authenticate')
+const express = require('express');
+const router = express.Router();
+const auth = require('../authenticate')
+const {
+  createBlog,
+  updateBlog,
+  deleteBlog,
+  getBlogs,
+  getBlogById,
+  getUserBlogs
+} = require('../controllers/blog.controllers')
 
-router.route('/').get(getAllBlogs).post(authenticate.verifyUser, createNewBlog)
+router.post('/', auth, createBlog);
+router.put('/:id', auth, updateBlog);
+router.delete('/:id', auth, deleteBlog);
+router.get('/', getBlogs);
+router.get('/:id', getBlogById);
+router.get('/me', auth, getUserBlogs);
 
-router.route('/:id')
-		.get(authenticate.verifyUser, getBlogById)
-		.put(authenticate.verifyUser, updateBlog)
-		.delete(authenticate.verifyUser, deleteBlog)
-
-module.exports = router
+module.exports = router;

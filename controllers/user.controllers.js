@@ -1,53 +1,56 @@
-const User = require('../models/user.model')
-const passport = require("passport")
-const authenticate = require("../authenticate")
+const passport = require('passport');
+const JWTStrategy = require('passport-jwt').Strategy;
+const { ExtractJwt } = require('passport-jwt');
+const User = require('../models/user');
 
-exports.getAllUsers = (req, res, next) => {
-	User.find({})
-			.then((users) => {
-				res.statusCode = 200;
-				res.setHeader('Content-Type', 'application/json')
-				// format result as json
-				res.json(users);
-			}, (err) => next(err))
-			.catch((err) => next(err));
-}
-exports.registerUser = (req, res, next) => {
-	User.register(new User({username: req.body.username}),
-			req.body.password, (err, user) => {
-				if(err) {
-					res.statusCode = 500;
-					res.setHeader('Content-Type', 'application/json')
-					res.json({err: err})
-				}
-				else {
-					// Use passport to authenticate User
-					passport.authenticate('local')(req, res, () => {
-						res.statusCode = 200;
-						res.setHeader('Content-Type', 'application/json')
-						res.json({success: true, status: 'Registration Successful!'})
-					});
-				}
-			});
-}
-exports.loginUser = (req, res, next) => {
-	// Create a token
-	const token = authenticate.getToken({_id: req.user._id})
-
-	// Response
-	res.statusCode = 200
-	res.setHeader('Content-Type', 'application/json')
-	res.json({success: true, token: token, status: 'You are successfully logged in!'})
-}
-exports.logoutUser = (req, res, next) => {
-	if (req.session) {
-		req.session.destroy()
-		res.clearCookie('session-id')
-		res.redirect('/')
-	}
-	else {
-		const err = new Error('You are not logged in!')
-		err.status = 403
-		next(err)
-	}
-}
+passport.use(
+  new JWTStrategy(
+    {
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      secretOrKey: process.env.JWT_SECRET
+    },
+    async (payload, done) => {
+      try {
+        const user = await User.findById(payload._id);
+        if (!user) {
+          return done(null, false);
+        }
+        return done(null, user);
+      } catch (error) {
+        console.error(error);
+        done(error);
+      }
+    }
+  )
+)
+router.post('/signup', async (req, res) => {
+    try {
+      const { email, password, firstName, lastName } = req.body;
+      const user = new User({
+        email,
+        password,
+        firstName,
+        lastName
+      });
+      await user.save();
+      res.status(201).send(user);
+    } catch (error) {
+      console.error(error);
+      res.status(500).send(error);
+    }
+  })
+  router.post('/signin', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      const user = await User.findOne({ email: req.body.email });
+      if (!user) {
+        return res.status(401).send({ error: 'Invalid login credentials' });
+      }
+      const token = user.generateAuthToken();
+      res.send({ token });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send(error);
+    }
+  })
+      

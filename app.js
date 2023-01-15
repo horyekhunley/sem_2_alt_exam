@@ -6,11 +6,10 @@ const mongoose = require('mongoose')
 
 const passport = require('passport')
 
-const usersRoutes = require('./routes/user.routes')
 const blogRoutes = require('./routes/blog.routes')
 
 // db connection
-const MONGO_URI = process.env.NODE_ENV === 'test'
+MONGO_URI = process.env.NODE_ENV === 'test'
 		? process.env.MONGO_URI_TEST
 		: process.env.MONGO_URI
 mongoose
@@ -33,8 +32,7 @@ app.use(cookieParser())
 //passport initialization
 app.use(passport.initialize())
 
-app.use('/api/v1/users', usersRoutes)
-app.use('/api/v1/blogs', blogRoutes)
+app.use('/api/v2/blogs', blogRoutes)
 
 const port = process.env.PORT || 5000
 app.listen(port, () => console.log(`Server listening on port: ${port}`))

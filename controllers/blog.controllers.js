@@ -1,111 +1,182 @@
-const {Blog} = require('../models/blog.model')
-const {User} = require('../models/user.model')
+const jwt = require("jsonwebtoken")
+const { Blog } = require("../models/blog.model")
 
-// get all blogs
-exports.getAllBlogs = async (req, res) => {
-	const blogs = await Blog.find({}).limit(10)
-	if (!blogs) {
-		return res.status(404).json({
-			message: 'There are no blogs here',
-		})
-	}else{
-		return res.status(200).json({
-			message: 'Blogs retrieved',
-			blogs
-		})
+const calculateReadingTime = body => {
+	const wordsPerMinute = 250;
+	const wordCount = body.split(' ').length;
+	return Math.ceil(wordCount / wordsPerMinute);
+  };
+  
+  const createBlog = async (req, res) => {
+	try {
+	  const { title, description, tags, body } = req.body;
+	  const author = req.user._id;
+	  const readingTime = calculateReadingTime(body);
+	  const blog = new Blog({
+		title,
+		description,
+		author,
+		tags,
+		body,
+		readingTime
+	  });
+	  await blog.save();
+	  res.status(201).json(blog);
+	} catch (error) {
+	  console.error(error);
+	  res.status(500).send(error);
 	}
+  };
+  
+const updateBlog = async (req, res) => {
+  try {
+    const { title, description, state, tags, body } = req.body
+    const readingTime = calculateReadingTime(body)
+    const updatedBlog = await Blog.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        author: req.user._id,
+      },
+      {
+        title,
+        description,
+        state,
+        tags,
+        body,
+        readingTime,
+      },
+      { new: true }
+    )
+    if (!updatedBlog) {
+      return res.status(404).json({ error: "Blog not found" })
+    }
+    res.json(updatedBlog)
+  } catch (error) {
+    console.error(error)
+    res.status(500).send(error)
+  }
 }
-// get blogs and filter by title
-exports.getBlogByTitle = async (req, res) => {
-	Blog.find({ title: req.params.title }, (err, blog) => {
-		if (err) {
-			res.status(400).json({
-				message: 'An error occurred',
-				err
-			})
-		}else{
-			res.status(200).json({
-				message: 'Blog retrieved',
-				blog
-			})
-		}
-	})
 
+const deleteBlog = async (req, res) => {
+  try {
+    const deletedBlog = await Blog.findOneAndDelete({
+      _id: req.params.id,
+      author: req.user._id,
+    })
+    if (!deletedBlog) {
+      return res.status(404).json({ error: "Blog not found" })
+    }
+    res.json(deletedBlog)
+  } catch (error) {
+    console.error(error)
+    res.status(500).send(error)
+  }
 }
-//get blog by id
-exports.getBlogById = async (req, res) => {
 
-	const blog = await Blog.findById(req.params.id)
-	if (!blog){
-		return res.status(404).json({
-			message: 'Blog with id ${req.params.id} does not exist',
-		})
-	}else {
-		return res.status(200).json({
-			message: 'Blog retrieved',
-			blog
-		})
-	}
+const getBlogs = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 20
+    const state = req.query.state || "published"
+    const author = req.query.author
+    const title = req.query.title
+    const tags = req.query.tags
+    const sort = req.query.sort || "-timestamp"
+    const search = {
+      state,
+    }
+    if (author) {
+      search.author = author
+    }
+    if (title) {
+      search.title = {
+        $regex: title,
+        $options: "i",
+      }
+    }
+    if (tags) {
+      search.tags = {
+        $in: tags.split(","),
+      }
+    }
+    const blogs = await Blog.find(search)
+      .populate("author", "firstName lastName")
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit)
+    const count = await Blog.countDocuments(search)
+    res.json({
+      blogs,
+      count,
+      page,
+      limit,
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).send(error)
+  }
 }
-// create a new blog
-exports.createNewBlog = async (req, res) => {
-	const blogContents = req.body
-	const user = await User.findOne({ email: blogContents.email })
 
-	const reading_time = () => {
-		const blogWords = blogContents.body.split(' ')
-		const blogLength = blogWords.length
-		const estimatedTimeInMinutes = blogLength/250
-		return `${estimatedTimeInMinutes} minutes`
-	}
-	const tags = blogContents.tags
-	const tagsArray = (tags) => {
-		return blogContents.tags.split(' ')
-	}
-	blogContents.tags = tagsArray(tags)
-	blogContents.reading_time = reading_time()
-	blogContents.author = user._id
-	blogContents.state = 'draft'
-
-	const blog = await Blog.create(blogContents)
-
-	res.status(201).json({
-		message: 'Blog created',
-		blog
-	})
+const getBlogById = async (req, res) => {
+  try {
+    const blog = await Blog.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        state: "published",
+      },
+      {
+        $inc: {
+          readCount: 1,
+        },
+      },
+      {
+        new: true,
+      }
+    ).populate("author", "firstName lastName")
+    if (!blog) {
+      return res.status(404).json({ error: "Blog not found" })
+    }
+    res.json(blog)
+  } catch (error) {
+    console.error(error)
+    res.status(500).send(error)
+  }
 }
-//update blog
-exports.updateBlog = async (req, res) => {
-	let blog = await Blog.findById(req.params.user._id)
-	if (!blog) {
-		return res.status(404).json({
-			message: 'Blog with id ${req.params.id} does not exist',
-		})
-	}
-	blog = await Blog.findOneAndUpdate({ "user._id": req.user._id }, {
-		$set: {
-			title: req.body.title,
-			description: req.body.description,
-			state: req.body.state,
-			tags: req.body.tags,
-			body: req.body.body,
-			reading_time: req.body.reading_time
-		}
-	}, { new: true })
-	return  res.status(200).json({
-		message: 'Blog updated',
-		blog
-	})
+
+const getUserBlogs = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 20
+    const state = req.query.state || "all"
+    const sort = req.query.sort || "-timestamp"
+    const search = {
+      author: req.user._id,
+    }
+    if (state !== "all") {
+      search.state = state
+    }
+    const blogs = await Blog.find(search)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit)
+    const count = await Blog.countDocuments(search)
+    res.json({
+      blogs,
+      count,
+      page,
+      limit,
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).send(error)
+  }
 }
-exports.deleteBlog = async (req, res) => {
-	const blog = await Blog.findByIdAndRemove(req.params.id)
-	if (!blog){
-		return res.status(404).json({
-			message: 'Blog with id ${req.params.id} does not exist',
-		})
-	}else{
-		return res.status(204).json({
-			message: 'Blog deleted'
-		})
-	}
+
+module.exports = {
+  createBlog,
+  updateBlog,
+  deleteBlog,
+  getBlogs,
+  getBlogById,
+  getUserBlogs,
 }

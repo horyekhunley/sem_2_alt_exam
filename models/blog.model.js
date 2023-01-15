@@ -1,46 +1,71 @@
 const mongoose = require('mongoose')
-const User = require('../models/user.model')
+const jwt = require('jsonwebtoken')
+
+const userSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  firstName: {
+    type: String,
+    required: true
+  },
+  lastName: {
+    type: String,
+    required: true
+  },
+  password: {
+    type: String,
+    required: true
+  }
+})
+
+userSchema.methods.generateAuthToken = function() {
+  const token = jwt.sign({ _id: this._id }, process.env.JWT_SECRET, {
+    expiresIn: '1h'
+  });
+  return token;
+}
+
 
 const blogSchema = new mongoose.Schema({
-	title: {
-		type: String,
-		required: ['Title field is required', true],
-	},
-	description: {
-		type: String,
-		required: ['Description field is required', true],
-	},
-	user: {
-		type: mongoose.Schema.Types.ObjectId,
-		ref: 'User'
-	},
-	state: {
-		type: String,
-		enum : ['draft','published'],
-		default: 'draft'
-	},
-	read_count: {
-		type: Number,
-		default: 0,
-	},
-	reading_time: {
-		type: Number,
-		required: true,
-	},
-	tags: {
-		type: String,
-		enum: [ 'Programming', 'Javascript', 'Java', 'TypeScript', 'Python', 'Rust', 'Product design', 'UI/UX', 'Code Newbie' ]
+  title: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  description: String,
+  author: {
+    type: mongoose.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  state: {
+    type: String,
+    enum: ['draft', 'published'],
+    default: 'draft'
+  },
+  readCount: {
+    type: Number,
+    default: 0
+  },
+  readingTime: Number,
+  tags: [String],
+  body: {
+    type: String,
+    required: true
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now
+  }
+});
 
-	},
-	body: {
-		type: String,
-		required: ['There is nothing in the body of your blog', true],
-	},
-
-}, { timestamps: true })
-
-const Blog = mongoose.model('blog', blogSchema)
+const User = mongoose.model('User', userSchema);
+const Blog = mongoose.model('Blog', blogSchema);
 
 module.exports = {
-	Blog
+  User,
+  Blog
 }
